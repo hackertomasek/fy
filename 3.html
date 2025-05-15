@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF Finder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  </script>
+  <style>
+    :root {
+      --primary: #004080;
+      --accent: #ffd54f;
+      --bg: #f9f9fb;
+      --text: #222;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      margin: 0;
+      max-width: 720px;
+      margin: auto;
+    }
+
+    h1 {
+      color: var(--primary);
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .result {
+      background: #fff;
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin-top: 1rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .highlight {
+      background: var(--accent);
+      font-weight: bold;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div style="text-align: center;">
+    <img src="logo.jpg" alt="Logo" style="max-width: 120px; margin-bottom: 1rem;">
+  </div>
+
+  <h1>📄 HLEDAČ ÚLOH 3000</h1>
+
+  <div class="card">
+    <label for="file-input">nahraj matfyzaka:</label>
+    <input type="file" id="file-input" accept="application/pdf">
+  </div>
+
+  <div class="card">
+    <label for="search-input">Hledat úlohu (např. <code>3.42</code>):</label>
+    <input type="text" id="search-input" placeholder="Zadej číslo úlohy...">
+    <div id="results"></div>
+  </div>
+
+  <div class="footer">
+    S láskou vytvořeno by tomasek ❤ (a chatGPT)
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const searchInput = document.getElementById("search-input");
+    const resultsDiv = document.getElementById("results");
+    let pdf = null;
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file || file.type !== "application/pdf") return alert("Vyber prosím PDF soubor.");
+      const arrayBuffer = await file.arrayBuffer();
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      resultsDiv.innerHTML = "<i>PDF načteno. Zadej číslo úlohy...</i>";
+    });
+
+    searchInput.addEventListener("input", async () => {
+      const query = searchInput.value.trim();
+      if (!pdf || !query) return;
+      resultsDiv.innerHTML = "<i>Hledám...</i>";
+      let results = [];
+
+      for (let i = 0; i < pdf.numPages; i++) {
+        const page = await pdf.getPage(i + 1);
+        const content = await page.getTextContent();
+        const textItems = content.items.map(item => item.str).join(" ");
+        if (textItems.includes(query)) {
+          const context = getSentenceAround(textItems, query);
+          results.push({
+            page: i + 1,
+            text: context.replace(query, `<span class="highlight">${query}</span>`)
+          });
+        }
+      }
+
+      if (results.length === 0) {
+        resultsDiv.innerHTML = "<p>😕 Úloha nenalezena.</p>";
+      } else {
+        resultsDiv.innerHTML = results.map(r => `
+          <div class="result">
+            <strong>Strana ${r.page}</strong><br>${r.text}
+          </div>
+        `).join("");
+      }
+    });
+
+    function getSentenceAround(text, term) {
+      const index = text.indexOf(term);
+      if (index === -1) return "";
+      const start = text.lastIndexOf(".", index) + 1;
+      const end = text.indexOf(".", index + term.length);
+      return text.substring(start, end + 1).trim();
+    }
+  </script>
+</body>
+</html>
